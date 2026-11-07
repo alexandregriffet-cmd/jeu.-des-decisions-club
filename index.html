@@ -396,6 +396,23 @@ a.ghost{text-decoration:none;display:inline-block}
   .chartbox{border:0;padding:0}
   .balrow{grid-template-columns:120px 1fr 50px}
 }
+.ctxq{margin-top:12px}
+.ctxq textarea{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);resize:vertical;min-height:80px}
+
+.jr .lect{margin-top:8px;font-size:14px;line-height:1.5;color:var(--accent-ink,#222A41);border-left:3px solid var(--accent-ink,#222A41);padding-left:10px;opacity:.9}
+.jr .lect b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px}
+.jr .lect{grid-column:2}
+@media (max-width:640px){.jr .lect{grid-column:1}}
+@media print{.jr .lect{grid-column:2;font-size:11px}}
+
+.alea{margin:14px 0;padding:12px 16px;border:1px solid var(--line);border-left:4px solid var(--ball);border-radius:8px;background:var(--surface)}
+.alea.bon{border-left-color:#2E8B57}
+.alea.mal{border-left-color:#C0392B}
+.alea .eyebrow{margin-bottom:4px}
+.alea b{display:block;font-size:17px;color:var(--accent-ink,var(--chalk))}
+.alea p{margin:6px 0 0;line-height:1.5}
+.alea small{display:block;margin-top:6px;color:var(--muted);font-size:13px}
+.alea .deltas{margin-top:8px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
@@ -567,6 +584,22 @@ const DYNS={
 };
 const DIFF_EV={tensions:[2],jeune:[1,10],budget:[8,9],benevoles:[4],resultats:[3],comm:[0,9],calendrier:[7]};
 const FORCE_EV={esprit:[2,7],formation:[1,10],staff:[3,11],soutien:[3,4],moyens:[8,9],technique:[6],direction:[0,9]};
+const ALEAS=[
+  {id:"blessure",title:"Blessure d’un joueur clé",text:"Le joueur autour duquel s’organise le jeu se blesse pour plusieurs semaines. Le groupe doit se réorganiser sans lui.",eff:[-4,0,-1],soft:["PC","SP"]},
+  {id:"sponsor",title:"Un sponsor se retire",text:"Un partenaire historique annonce qu’il ne renouvellera pas son soutien. Le budget de fin de saison se resserre.",eff:[-1,0,-3],soft:["RT","CO"]},
+  {id:"presse",title:"Polémique dans la presse locale",text:"Un article critique sur le club est relayé sur les réseaux. Au vestiaire, chacun se demande qui a parlé.",eff:[0,-3,-2],soft:["RI","RP"]},
+  {id:"arbitrage",title:"Un arbitrage contesté",text:"Une décision d’arbitrage très discutée coûte un résultat. Le ressentiment monte dans le groupe.",eff:[-2,-2,0],soft:["RP","RI"]},
+  {id:"epidemie",title:"Une épidémie dans l’effectif",text:"Une gastro et plusieurs petits pépins privent le staff d’un tiers de l’effectif à l’entraînement.",eff:[-3,-1,-2],soft:["CQ","CO"]},
+  {id:"depart",title:"Un cadre annonce son départ",text:"Un cadre du vestiaire annonce qu’il partira en fin de saison. Chacun s’interroge sur sa place.",eff:[-2,-3,-1],soft:["CO","RI"]},
+  {id:"terrain",title:"Terrain principal fermé",text:"Le terrain principal est fermé plusieurs semaines. Les séances se déplacent et le calendrier se bouscule.",eff:[-3,0,-2],soft:["SP","DP"]},
+  {id:"clans",title:"Le vestiaire se divise sur un choix",text:"Un choix de composition divise le vestiaire. Deux camps se forment, chacun cherche des alliés.",eff:[0,-4,-1],soft:["RP","RI"]},
+  {id:"serie",title:"Une série de victoires inattendue",text:"Trois succès d’affilée, dont un face à un favori. La confiance revient et le stade se remplit.",eff:[3,2,2],soft:[]},
+  {id:"recrue",title:"Une recrue s’intègre très vite",text:"Un nouvel arrivant s’adapte au jeu et au vestiaire en quelques semaines. Les anciens l’adoptent sans réserve.",eff:[2,3,0],soft:[]},
+  {id:"partenaire",title:"Un nouveau partenaire s’engage",text:"Une entreprise locale s’engage pour plusieurs saisons et finance de nouveaux équipements.",eff:[1,1,3],soft:[]},
+  {id:"supporters",title:"Un soutien exceptionnel des supporters",text:"Un stade plein et des chants jusqu’au coup de sifflet final. Le groupe se sent porté.",eff:[0,1,4],soft:[]},
+  {id:"jeune",title:"Un jeune du centre de formation se révèle",text:"Un jeune lancé par nécessité répond présent. Le staff découvre une option qu’il n’attendait pas.",eff:[3,1,2],soft:[]},
+  {id:"complet",title:"Un groupe au complet",text:"Aucun blessé ni suspendu pendant un mois. Les séances sont denses et la concurrence saine.",eff:[3,0,2],soft:[]}
+];
 const DEV_IDS=["DC","PC","RP","RI"];
 function defaultProfile(){return {obj:"milieu",forces:[],diffs:[],arr:5,dep:4,dyn:"stable"};}
 function neutralProfile(){return {obj:"milieu",forces:[],diffs:[],arr:3,dep:3,dyn:"stable"};}
@@ -588,6 +621,30 @@ function startOf(pf){
 
 const PRESS=["AO","CQ","SR"];
 const E_P=2.1, E_CB=1.1;
+
+function drawAleas(){
+  if(!ALEAS.length) return [];
+  const nb=3+(Math.random()<0.5?1:0);
+  const nbBonus=nb===4?2:(Math.random()<0.5?1:2);
+  const isBonus=a=>a.eff.reduce((s,v)=>s+v,0)>0;
+  const pick=(arr,n)=>{const c=[...arr];const out=[];while(out.length<n&&c.length){out.push(c.splice(Math.floor(Math.random()*c.length),1)[0]);}return out;};
+  for(let t=0;t<400;t++){
+    const ps=pick([1,2,3,4,5,6,7,8,9,10],nb).sort((a,b)=>a-b);
+    if(ps.some((x,i)=>i&&x-ps[i-1]<2)) continue;
+    const chosen=pick(ALEAS.filter(isBonus),nbBonus).concat(pick(ALEAS.filter(a=>!isBonus(a)),nb-nbBonus));
+    if(chosen.length<nb) continue;
+    const tot=[0,0,0];chosen.forEach(a=>a.eff.forEach((v,i)=>{tot[i]+=v;}));
+    if(tot.some(v=>Math.abs(v)>8)) continue;
+    const order=pick(chosen,nb);
+    return ps.map((at,i)=>({at,id:order[i].id}));
+  }
+  return [];
+}
+function aleaAt(G,p){
+  const al=(G.aleas||[]).find(a=>a.at===p);
+  return al?ALEAS.find(x=>x.id===al.id)||null:null;
+}
+
 
 function newGame(pf){
   pf=pf||neutralProfile();
@@ -658,6 +715,18 @@ function step(G,alloc){
 
   const dim=(v,x)=>x>0?x*Math.max(0.25,1-Math.max(0,v-20)/34):x;
   const n={P:before.P+dim(before.P,d[0])+coup-E_P,C:before.C+dim(before.C,d[1])-E_CB,B:before.B+dim(before.B,d[2])-(E_CB+0.15*OBJECTIVES[pf.obj].press)};
+  let alea=null;
+  const A=aleaAt(G,p);
+  if(A){
+    const by=A.soft.filter(id=>recentIds.has(id));
+    const eff=A.eff.map(v=>v<0&&by.length?v*0.5:v);
+    n.P+=eff[0];n.C+=eff[1];n.B+=eff[2];
+    const AT=(G.alp&&G.alp[A.id]&&G.alp[A.id].title)||A.title;
+    alea={id:A.id,title:AT,eff,by:by.map(id=>LEV[id].name),raw:A.eff};
+    const fmt=(l,v)=>v?l+" "+(v>0?"+":"")+String(Math.round(v*10)/10).replace(".",","):"";
+    const txt=[fmt("performance",eff[0]),fmt("cohésion",eff[1]),fmt("bien-être",eff[2])].filter(Boolean).join(", ");
+    notes.push("Aléa « "+AT+" » : "+txt+(by.length&&A.eff.some(v=>v<0)?" (malus réduit de moitié grâce à « "+by[0]+" »)":"")+".");
+  }
   if(p===NP-1){
     const avg=(clamp(n.C)+clamp(n.B))/2;
     if(avg>=26){n.P+=3;notes.push("Phases finales : un groupe uni et en forme tient la distance.");}
@@ -665,7 +734,7 @@ function step(G,alloc){
   }
   const after={P:r1(clamp(n.P)),C:r1(clamp(n.C)),B:r1(clamp(n.B))};
   const delta={P:r1(after.P-before.P),C:r1(after.C-before.C),B:r1(after.B-before.B)};
-  G.hist.push({picks:ids,alloc:{...alloc},before,after,delta,notes,ev:p});
+  G.hist.push({picks:ids,alloc:{...alloc},before,after,delta,notes,ev:p,alea});
   G.state=after;
   G.series.P.push(after.P);G.series.C.push(after.C);G.series.B.push(after.B);
   G.period=p+1;
@@ -693,7 +762,7 @@ let S={phase:"setup",sel:0,metric:"P",showRef:false,title:"",sessionId:null,debr
   cfg:Array.from({length:4},(_,i)=>({name:"Équipe "+(i+1),count:6,open:false,pf:defaultProfile()})),teams:[]};
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const sg=v=>(v>0?"+":v<0?"−":"")+Math.abs(Math.round(v));
+const sg=v=>{const r=Math.round(v);return (r>0?"+":r<0?"−":"")+Math.abs(r);};
 const cls=v=>Math.round(v)>0?"up":Math.round(v)<0?"dn":"eq";
 const goTop=()=>window.scrollTo({top:0,behavior:"auto"});
 const keep=fn=>{const y=window.scrollY;fn();window.scrollTo({top:y,behavior:"auto"});};
@@ -709,15 +778,23 @@ function randomProfile(){
     arr:Math.floor(Math.random()*13),dep:Math.floor(Math.random()*13),dyn:randPick(ks(DYNS),1)[0]};
 }
 function eventTitle(i,tm){
+  {const pv=PV(tm,i); if(pv&&pv.title) return esc(pv.title);}
   if(i===0) return (tm.pf.arr+tm.pf.dep>=12)?"Un effectif à reconstruire":"Une saison qui s’ouvre";
   return EVENTS[i].title;
 }
 function eventText(i,tm){
+  {const pv=PV(tm,i); if(pv&&pv.text) return esc(pv.text);}
   const pf=tm.pf;
   if(i===0) return "Le club compte "+plural(pf.arr,"arrivée")+" et "+plural(pf.dep,"départ")+". Le projet de jeu est nouveau et l’ambition annoncée est la suivante : "+OBJECTIVES[pf.obj].label.toLowerCase()+". Dans le vestiaire, personne ne sait encore qui fait quoi ni qui décide de quoi.";
   if(i===5) return "Le club arrive à mi-parcours et son objectif se joue maintenant : "+OBJECTIVES[pf.obj].label.toLowerCase()+". Les partenaires demandent des garanties, les supporters s’expriment tout haut et le staff sent le poids de l’attente.";
   return EVENTS[i].text;
 }
+const GAME_KIND="club";
+const CTX_LABEL=GAME_KIND==="entreprise"?"Contexte de l’équipe (facultatif, adapté par l’IA)":"Contexte du club (facultatif, adapté par l’IA)";
+const CTX_PH=GAME_KIND==="entreprise"?"Ex. Équipe projet de 8 personnes, secteur logistique, forte charge en fin de trimestre, deux managers récents, tension entre le commercial et la production.":"Ex. Rugby, Fédérale 2, budget serré, effectif jeune, stade en travaux, deux cadres blessés, tensions entre le staff et le président.";
+function PV(tm,i){return (tm&&tm.perso&&tm.perso.ev&&tm.perso.ev[i])||null;}
+function LV(tm,l){const d=tm&&tm.perso&&tm.perso.lev&&tm.perso.lev[l.id];return d?esc(d):l.desc;}
+function lensOf(tm,i,ev){const pv=PV(tm,i);return (pv&&Array.isArray(pv.lens)&&pv.lens.length===4)?pv.lens.map(esc):ev.lens;}
 function playersOf(count){return Array.from({length:count},(_,i)=>({n:i+1,role:ROLE_ORDER[i%4]}));}
 function rosterText(count){return playersOf(count).map(p=>"J"+p.n+" "+ROLES[p.role].name.split(" /")[0]).join(" · ");}
 
@@ -838,13 +915,17 @@ function profForm(c,i){
    +'<button type="button" class="ghost" data-act="rand" data-i="'+i+'">Remplir au hasard</button>'
    +'</div></details>';
 }
+function ctxField(c,i){
+  if(!CLOUD) return "";
+  return '<div class="q ctxq"><label class="lab2" for="cx'+i+'">'+CTX_LABEL+'</label><textarea id="cx'+i+'" rows="3" maxlength="600" data-act="tctx" data-i="'+i+'" placeholder="'+esc(CTX_PH)+'">'+esc(c.ctx||"")+'</textarea><span class="who" style="display:block;margin-top:4px">Sport, niveau, budget, effectif, tensions, enjeux locaux. Les situations et les questions de chaque rôle seront réécrites avec ce contexte au lancement.</span></div>';
+}
 function renderSetup(){
   $restart.hidden=true;
   const n=S.cfg.length;
   const cnt=[1,2,3,4,5,6].map(k=>'<button type="button" data-act="nteams" data-n="'+k+'" aria-pressed="'+(k===n)+'">'+k+'</button>').join("");
   const rows=S.cfg.map((c,i)=>{
     const opts=[4,5,6,7,8].map(k=>'<option value="'+k+'"'+(k===c.count?' selected':'')+'>'+k+' joueurs</option>').join("");
-    return '<div class="tcard" style="--c:'+TC(i)+'"><div class="ts"><span class="sw"></span><input type="text" id="tn'+i+'" data-act="tname" data-i="'+i+'" value="'+esc(c.name)+'" maxlength="28" aria-label="Nom de l’équipe '+(i+1)+'"><select id="tc'+i+'" data-act="tcount" data-i="'+i+'" aria-label="Nombre de joueurs équipe '+(i+1)+'">'+opts+'</select><div class="roster" id="ro'+i+'">'+rosterText(c.count)+'</div></div>'+profForm(c,i)+'</div>';
+    return '<div class="tcard" style="--c:'+TC(i)+'"><div class="ts"><span class="sw"></span><input type="text" id="tn'+i+'" data-act="tname" data-i="'+i+'" value="'+esc(c.name)+'" maxlength="28" aria-label="Nom de l’équipe '+(i+1)+'"><select id="tc'+i+'" data-act="tcount" data-i="'+i+'" aria-label="Nombre de joueurs équipe '+(i+1)+'">'+opts+'</select><div class="roster" id="ro'+i+'">'+rosterText(c.count)+'</div></div>'+ctxField(c,i)+profForm(c,i)+'</div>';
   }).join("");
   const rb=ROLE_ORDER.map(k=>'<div class="rb"><b>'+ROLES[k].name+'</b><span>'+ROLES[k].pitch+'</span></div>').join("");
   $app.innerHTML='<section class="screen">'
@@ -880,10 +961,26 @@ function renderBrief(){
    +'<div class="bc"><b>Difficultés</b>'+list(pf.diffs,DIFFS)+'</div></div>'
    +'<div class="sect"><h2>Point de départ</h2>'+gauges(G.state)+'<div style="margin-top:14px">'+tbl+'</div>'
    +'<p class="who" style="margin-top:10px">Vos difficultés rendent certaines situations plus sensibles, et vos points forts en amortissent d’autres. Vous le saurez en cours de saison.</p></div>'
+   +(S.persoNote?'<p class="who" style="margin-top:12px">'+esc(S.persoNote)+'</p>':(S.teams[S.sel]&&S.teams[S.sel].perso?'<p class="who" style="margin-top:12px">Situations, questions et actions adaptées au contexte de cette équipe.</p>':''))
    +'<div class="actions"><button type="button" class="btn" data-act="begin">Commencer la saison</button>'+(CLOUD?'':'<button type="button" class="btn alt" data-act="setup">Modifier les profils</button>')+'</div></section>';
 }
 
 /* ---------- décisions ---------- */
+function aleaPlay(G,p){
+  const A=aleaAt(G,p); if(!A) return "";
+  const T=(G.alp&&G.alp[A.id])||A;
+  return '<div class="alea" role="note"><div class="eyebrow">Aléa de la période</div><b>'+esc(T.title)+'</b><p>'+esc(T.text)+'</p><small>Ses effets se verront dans les résultats. Certaines décisions peuvent en atténuer les conséquences.</small></div>';
+}
+function aleaRes(h,G){
+  const a=h.alea; if(!a) return "";
+  const dl=(n,d)=>d?'<span class="dl '+cls(d)+'">'+n+' '+sg(d)+'</span>':'';
+  const bon=a.eff.reduce((s,v)=>s+v,0)>0;
+  const A0=aleaAt({aleas:[{at:h.ev,id:a.id}]},h.ev);
+  const A=(G&&G.alp&&G.alp[a.id])||A0;
+  return '<div class="alea '+(bon?'bon':'mal')+'" role="note"><div class="eyebrow">Aléa de la période</div><b>'+esc(a.title)+'</b>'+(A?'<p>'+esc(A.text)+'</p>':'')
+   +'<div class="deltas">'+dl("Performance",a.eff[0])+dl("Cohésion",a.eff[1])+dl("Bien-être",a.eff[2])+'</div>'
+   +(a.by.length&&a.raw.some(v=>v<0)?'<small>Malus réduit de moitié grâce à « '+esc(a.by[0])+' ».</small>':(a.raw.some(v=>v<0)?'<small>Aucune décision récente n’a atténué ce malus.</small>':''))+'</div>';
+}
 function renderPlay(){
   $restart.hidden=false;
   const tm=S.teams[S.sel], G=tm.G, p=G.period, ev=EVENTS[p];
@@ -892,12 +989,12 @@ function renderPlay(){
   const roster=playersOf(tm.count);
   const lens=ROLE_ORDER.map((k,i)=>{
     const who=roster.filter(x=>x.role===k).map(x=>"J"+x.n).join(", ");
-    return '<div class="ln2"><b>'+ROLES[k].name+'</b><em>'+who+'</em><span>'+ev.lens[i]+'</span></div>';
+    return '<div class="ln2"><b>'+ROLES[k].name+'</b><em>'+who+'</em><span>'+lensOf(tm,p,ev)[i]+'</span></div>';
   }).join("");
   const fams=Object.entries(FAM).map(([fk,f])=>{
     const cards=LEVERS.filter(l=>l.fam===fk).map(l=>{
       const w=G.alloc[l.id]||0;
-      return '<div class="card f-'+fk+(w?' has':'')+'"><span class="code">'+l.n+'</span><span class="nm">'+l.name+'</span><span class="ds">'+l.desc+'</span>'
+      return '<div class="card f-'+fk+(w?' has':'')+'"><span class="code">'+l.n+'</span><span class="nm">'+l.name+'</span><span class="ds">'+LV(tm,l)+'</span>'
        +'<div class="pts"><button type="button" data-act="dec" data-id="'+l.id+'" aria-label="Retirer un point à '+esc(l.name)+'"'+(w===0?' disabled':'')+'>−</button><output aria-live="polite">'+w+' pt'+(w>1?'s':'')+'</output><button type="button" data-act="inc" data-id="'+l.id+'" aria-label="Ajouter un point à '+esc(l.name)+'"'+(left===0?' disabled':'')+'>+</button></div></div>';
     }).join("");
     return '<div class="fam f-'+fk+'"><h3>'+f.name+'<small>'+f.sub+'</small></h3>'+cards+'</div>';
@@ -907,6 +1004,7 @@ function renderPlay(){
   $app.innerHTML='<section class="screen">'+prog
    +'<div class="phead"><div><div class="eyebrow">'+phaseLabel(p)+' · période '+(p+1)+' sur '+NP+'</div><h2>'+eventTitle(p,tm)+'</h2></div>'+gauges(G.state)+'</div>'
    +'<div class="scene"><p>'+eventText(p,tm)+'</p></div>'
+   +aleaPlay(G,p)
    +tabs("play")
    +'<p class="who" style="margin-top:10px"><b>Profil de '+esc(tm.name)+' :</b> '+esc(profText(tm.pf))+'</p>'
    +'<div class="lens" aria-label="Ce que chaque rôle se demande">'+lens+'</div>'
@@ -935,6 +1033,7 @@ function renderResult(){
   $app.innerHTML='<section class="screen">'+strip(G.period)
    +'<div class="phead"><div><div class="eyebrow">'+phaseLabel(i)+' · période '+(i+1)+' sur '+NP+'</div><h2 style="color:var(--accent-ink)">Résultats de la période</h2></div></div>'
    +tabs("result")
+   +aleaRes(h,G)
    +'<div class="res"><div><div class="eyebrow">'+esc(tm.name)+'</div><p class="who" style="margin-top:4px">Décisions : '+esc(picked)+'</p>'
    +'<div class="voices">'+q("P","P","v-p",sp[0])+q("C","C","v-c",sp[1])+q("W","B","v-w",sp[2])+'</div></div>'
    +'<div><div class="chartbox">'+chart(G.series,false)+legend(G.state)+'<div class="deltas">'+dl("Performance",h.delta.P)+dl("Cohésion",h.delta.C)+dl("Bien-être",h.delta.B)+'</div></div></div></div>'
@@ -943,7 +1042,7 @@ function renderResult(){
 }
 
 /* ---------- bilan ---------- */
-function verdict(G){
+function verdict(G,tm){
   const {P,C,B}=G.state;
   const cnt={exig:0,cad:0,col:0,dev:0};let tot=0;
   G.hist.forEach(h=>Object.entries(h.alloc).forEach(([id,w])=>{cnt[LEV[id].fam]+=w;tot+=w;}));
@@ -954,11 +1053,13 @@ function verdict(G){
   else if(P<22&&(C>=24||B>=24)){title="Un club où il fait bon vivre";text="Le climat est bon, mais le niveau de jeu ne progresse pas. Le lien seul ne suffit pas : il faut aussi un cadre et du développement.";}
   else if(P>=26){title="Une saison correcte";text="Les résultats sont au rendez-vous, mais le groupe est fragilisé. La marge de progression se trouve du côté du collectif.";}
   else{title="Une saison difficile";text="Les trois courbes restent basses. Relisez le journal des décisions : quels effets sont arrivés après coup ?";}
+  if(tm&&tm.bilan&&tm.bilan.verdict){title=esc(tm.bilan.verdict.title);text=esc(tm.bilan.verdict.text);}
   text+=' Vous avez placé <strong>'+Math.round(top[1]/tot*100)+' %</strong> de vos points dans la famille <strong>'+FAM[top[0]].name+'</strong>.';
   return {title,text,cnt,tot};
 }
 /* ---------- bilan ---------- */
 const GEN_Q=["Dans votre équipe, qui a défendu quoi selon son rôle, et qui a fini par décider ?","Quelle décision a produit un effet visible seulement plusieurs périodes plus tard ?","Si vous rejouiez la saison, quelle décision prendriez-vous plus tôt, et laquelle plus tard ?"];
+function genQ(tm){return(tm&&tm.bilan&&Array.isArray(tm.bilan.qs)&&tm.bilan.qs.length===3)?tm.bilan.qs.map(esc):GEN_Q;}
 function teamLegend(key){
   return '<div class="legend">'+S.teams.map((t,i)=>'<span style="--c:'+TC(i)+'"><i class="dsh"'+(DASH[i]?' style="border-top-style:dashed"':'')+'></i>'+esc(t.name)+' <em>'+Math.round(t.G.state[key])+'</em></span>').join("")+'</div>';
 }
@@ -971,11 +1072,12 @@ function phaseTable(G){
   return '<div class="rank"><table><thead><tr><th>Étape</th><th>Perf.</th><th>Cohésion</th><th>Bien-être</th></tr></thead><tbody>'
     +pts.map(([n,ix],r)=>'<tr><td>'+n+'</td><td>'+cell("P",ix,r)+'</td><td>'+cell("C",ix,r)+'</td><td>'+cell("B",ix,r)+'</td></tr>').join("")+'</tbody></table></div>';
 }
-function journalHTML(G){
+function journalHTML(G,tm){
   const d=(n,x)=>'<span class="dl '+cls(x)+'">'+n+' '+sg(x)+'</span>';
   return G.hist.map(h=>{
     const chips=h.picks.map(id=>'<span class="chip f-'+LEV[id].fam+'">'+LEV[id].n+'</span> <span>'+LEV[id].name+' ('+h.alloc[id]+' pt'+(h.alloc[id]>1?'s':'')+')</span>').join(' &nbsp; ');
-    return (h.ev===0||h.ev===3||h.ev===9?'<h3 class="jph">'+EVENTS[h.ev].phase+'</h3>':'')+'<div class="jr"><div class="when"><b>P'+(h.ev+1)+' · '+EVENTS[h.ev].tag+'</b><span>'+EVENTS[h.ev].title+'</span></div><div><div class="chips">'+chips+'</div><div class="deltas">'+d("Perf.",h.delta.P)+d("Cohésion",h.delta.C)+d("Bien-être",h.delta.B)+'</div></div>'
+    return (h.ev===0||h.ev===3||h.ev===9?'<h3 class="jph">'+EVENTS[h.ev].phase+'</h3>':'')+'<div class="jr"><div class="when"><b>P'+(h.ev+1)+' · '+EVENTS[h.ev].tag+'</b><span>'+eventTitle(h.ev,tm||{pf:{arr:0,dep:0}})+'</span></div><div><div class="chips">'+chips+'</div><div class="deltas">'+d("Perf.",h.delta.P)+d("Cohésion",h.delta.C)+d("Bien-être",h.delta.B)+'</div></div>'
+     +(tm&&tm.bilan&&tm.bilan.per&&tm.bilan.per[h.ev]?'<div class="lect"><b>Lecture</b> '+esc(tm.bilan.per[h.ev])+'</div>':'')
      +(h.notes.length?'<div class="notes">'+[...new Set(h.notes)].map(n=>'<div>'+esc(n)+'</div>').join("")+'</div>':'')+'</div>';
   }).join("");
 }
@@ -987,18 +1089,18 @@ function debriefForm(ti){
   const N=S.debrief.notes;
   const ta=(k,q)=>'<label class="dq"><span>'+q+'</span><textarea rows="3" data-act="dq" data-k="'+k+'" placeholder="Réponses et décisions de l’équipe">'+esc(N[k]||"")+'</textarea></label>';
   const roles=ROLE_ORDER.map(rk=>'<details class="dsec"><summary>'+ROLES[rk].name+'</summary>'+ROLES[rk].qs.map((q,n)=>ta("t"+ti+"_"+rk+"_"+n,q)).join("")+'</details>').join("");
-  const gen=GEN_Q.map((q,n)=>ta("t"+ti+"_g_"+n,q)).join("");
+  const gen=genQ(S.teams[ti]).map((q,n)=>ta("t"+ti+"_g_"+n,q)).join("");
   return '<div class="dgen">'+gen+'</div><div class="dsecs">'+roles+'</div>';
 }
 function answersHTML(ti){
   const N=S.debrief.notes;const out=[];
-  GEN_Q.forEach((q,n)=>{const a=(N["t"+ti+"_g_"+n]||"").trim();if(a) out.push([q,a]);});
+  genQ(S.teams[ti]).forEach((q,n)=>{const a=(N["t"+ti+"_g_"+n]||"").trim();if(a) out.push([q,a]);});
   ROLE_ORDER.forEach(rk=>ROLES[rk].qs.forEach((q,n)=>{const a=(N["t"+ti+"_"+rk+"_"+n]||"").trim();if(a) out.push([ROLES[rk].name+" : "+q,a]);}));
   return out.length?out.map(([q,a])=>'<div class="pr-qa"><b>'+esc(q)+'</b><p>'+esc(a).replace(/\n/g,"<br>")+'</p></div>').join(""):'<p class="who">Débrief non renseigné pour cette équipe.</p>';
 }
 function renderFinal(){
   $restart.hidden=false;
-  const tm=S.teams[S.sel],G=tm.G,v=verdict(G),ob=objectiveResult(G);
+  const tm=S.teams[S.sel],G=tm.G,v=verdict(G,tm),ob=objectiveResult(G);
   const metrics=[["P","Performance"],["C","Cohésion"],["B","Bien-être"]];
   const seg='<div class="seg">'+metrics.map(([k,n])=>'<button type="button" data-act="metric" data-k="'+k+'" aria-pressed="'+(S.metric===k)+'">'+n+'</button>').join("")+'</div>';
   const keys='<div class="keys">'
@@ -1022,7 +1124,7 @@ function renderFinal(){
    +'<label class="toggle"><input type="checkbox" id="ref"'+(S.showRef?' checked':'')+'> Superposer une trajectoire équilibrée (pointillés)</label>'
    +'<h3 class="jph" style="margin-top:20px">Étape par étape</h3>'+phaseTable(G)+'</div>'
    +'<div class="sect"><h2>Équilibre des points placés</h2><div class="bal">'+balHTML(v)+'</div>'+(lt?'<p class="later" style="margin-top:14px">'+lt+'</p>':'')+'</div>'
-   +'<div class="sect"><h2>Journal de la saison</h2><div class="journal">'+journalHTML(G)+'</div></div>'
+   +'<div class="sect"><h2>Journal de la saison</h2><div class="journal">'+journalHTML(G,tm)+'</div></div>'
    +'<div class="sect"><h2>Clés de lecture</h2>'+keys+'</div>'
    +'<div class="sect"><h2>Débrief de '+esc(tm.name)+'</h2><p class="who" style="margin:0 0 12px">'+saveNote+' Changez d’équipe avec les onglets du bilan par équipe.</p>'+debriefForm(S.sel)+'</div>'
    +'<div class="sect"><h2>Synthèse de l’animateur</h2><label class="dq"><span>Ce que le groupe retient de la partie</span><textarea rows="4" id="synth" data-act="dsynth" placeholder="Enseignements, surprises, points à approfondir">'+esc(S.debrief.synth)+'</textarea></label><div class="dgen">'+actions+'</div></div>'
@@ -1038,7 +1140,7 @@ function buildPrint(){
   h+='<h2>Classement des équipes</h2>'+ranking();
   h+='<div class="pr-charts">'+[["P","Performance"],["C","Cohésion"],["B","Bien-être"]].map(([k,n])=>'<div class="pr-avoid"><h3>'+n+'</h3>'+chartTeams(k)+teamLegend(k)+'</div>').join("")+'</div>';
   S.teams.forEach((tm,i)=>{
-    const G=tm.G,v=verdict(G),ob=objectiveResult(G),lt=laterText(G);
+    const G=tm.G,v=verdict(G,tm),ob=objectiveResult(G),lt=laterText(G);
     h+='<section class="pr-team"><h2><span class="pr-dot" style="background:'+TC(i)+'"></span>'+esc(tm.name)+' <small>'+tm.count+' joueurs · objectif : '+esc(OBJECTIVES[tm.pf.obj].short)+'</small></h2>'
      +'<p class="pr-prof">'+esc(profText(tm.pf))+'</p>'
      +'<h3>'+v.title+'</h3><p>'+v.text+'</p>'
@@ -1046,7 +1148,7 @@ function buildPrint(){
      +'<div class="pr-avoid" style="margin-top:12px">'+chart(G.series,false)+legend(G.state)+'</div>'
      +'<div class="pr-avoid"><h3>Étape par étape</h3>'+phaseTable(G)+'</div>'
      +'<div class="pr-avoid"><h3>Équilibre des points placés</h3><div class="bal">'+balHTML(v)+'</div>'+(lt?'<p class="later" style="margin-top:8px">'+lt+'</p>':'')+'</div>'
-     +'<h3>Journal de la saison</h3><div class="journal">'+journalHTML(G)+'</div>'
+     +'<h3>Journal de la saison</h3><div class="journal">'+journalHTML(G,tm)+'</div>'
      +'<h3>Débrief</h3>'+answersHTML(i)+'</section>';
   });
   const acts=S.debrief.actions.map(a=>a.trim()).filter(Boolean);
@@ -1104,8 +1206,8 @@ async function refreshProfile(){
   if(data) ACC.profile=data;
 }
 async function loadList(){
-  const {data}=await sb.from("sessions").select("id,title,phase,period,completed,created_at,updated_at").eq("owner",ACC.user.id).order("updated_at",{ascending:false});
-  LIST=data||[];
+  const {data}=await sb.from("sessions").select("id,title,phase,period,completed,created_at,updated_at,config").eq("owner",ACC.user.id).order("updated_at",{ascending:false});
+  LIST=(data||[]).filter(s=>!(s.config&&s.config.game==="entreprise"));
 }
 async function afterLogin(user){
   const {data,error}=await sb.from("profiles").select("*").eq("id",user.id).single();
@@ -1156,13 +1258,15 @@ function render(msg){
   if(S.phase==="login") return renderLogin(msg);
   if(S.phase==="home") return renderHome();
   if(S.phase==="setup") return renderSetup();
+  if(S.phase==="prep") return renderPrep();
   if(S.phase==="brief") return renderBrief();
   if(S.phase==="play") return renderPlay();
   if(S.phase==="result") return renderResult();
   return renderFinal();
 }
 function startGame(){
-  S.teams=S.cfg.map(c=>{const pf=JSON.parse(JSON.stringify(c.pf));return {name:(c.name||"").trim()||"Équipe",count:c.count,pf,G:newGame(pf)};});
+  const AL=drawAleas();
+  S.teams=S.cfg.map(c=>{const pf=JSON.parse(JSON.stringify(c.pf));return {name:(c.name||"").trim()||"Équipe",count:c.count,pf,G:(()=>{const g=newGame(pf);g.aleas=AL;return g;})()};});
   S.sel=0;S.phase="brief";S.showRef=false;S.metric="P";S.debrief={notes:{},synth:"",actions:["","",""]};
 }
 async function launch(btn){
@@ -1175,10 +1279,90 @@ async function launch(btn){
     const el=document.getElementById("serr");if(el) el.textContent=errText(error.message);
     return;
   }
-  S.sessionId=data.id;await refreshProfile();renderAcct();render();goTop();
+  S.sessionId=data.id;await refreshProfile();renderAcct();
+  await personalizeAll();
+  render();goTop();
+}
+function profFull(pf){
+  const l=(arr,m)=>arr.length?arr.map(k=>m[k].label).join(" ; "):"aucun";
+  return "Objectif : "+OBJECTIVES[pf.obj].label+". Points forts : "+l(pf.forces,FORCES)+". Difficultés : "+l(pf.diffs,DIFFS)+". Mouvements : "+pf.arr+" arrivées, "+pf.dep+" départs. Dynamique : "+DYNS[pf.dyn].label+" ("+DYNS[pf.dyn].desc+").";
+}
+function renderPrep(){
+  $restart.hidden=true;
+  const n=S.teams.length,d=S.prepDone||0;
+  const bl=S.prepKind==="bilan";
+  $app.innerHTML='<section class="screen"><div class="loginbox" style="max-width:560px"><div class="eyebrow">'+(bl?'Bilan de saison':'Préparation de la partie')+'</div><h1 class="st">'+(bl?'Rédaction du bilan':'Adaptation au contexte')+'</h1><p class="lead" style="margin-top:10px">'+(bl?'Le bilan, le journal et les questions de débrief sont rédigés avec le contexte de chaque équipe et les décisions prises. Comptez 15 à 30 secondes.':'Les situations, les questions de chaque rôle et la description des actions sont réécrites avec le contexte de chaque équipe. Comptez 20 à 40 secondes.')+'</p><p class="who" aria-live="polite"><b>'+d+' équipe'+(d>1?'s':'')+' sur '+n+' prête'+(d>1?'s':'')+'</b></p></div></section>';
+}
+async function personalizeTeam(tm,c,token){
+  const roles=ROLE_ORDER.map(k=>ROLES[k].name);
+  const evs=EVENTS.map((e,i)=>({i,tag:e.tag,title:eventTitle(i,tm),text:eventText(i,tm),lens:e.lens}));
+  const ales=(tm.G.aleas||[]).map(x=>ALEAS.find(a=>a.id===x.id)).filter(Boolean).map(a=>({id:a.id,title:a.title,text:a.text,nature:a.eff.reduce((s,v)=>s+v,0)>0?"favorable":"défavorable"}));
+  const parts=[[0,1,2,3],[4,5,6,7],[8,9,10,11]].map((idx,k)=>({part:k,events:idx.map(i=>evs[i]),levers:k===0?LEVERS.map(l=>({id:l.id,name:l.name,desc:l.desc})):[],aleas:k===0?ales:[]}));
+  const out={ev:{},lev:{},al:{}};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  await Promise.all(parts.map(async p=>{
+    for(let attempt=0;attempt<4;attempt++){
+      if(attempt) await wait(attempt*6000);
+      const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),75000);
+      try{
+        const r=await fetch("/api/personalize",{method:"POST",signal:ctl.signal,headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
+          body:JSON.stringify({game:GAME_KIND,session_id:S.sessionId,roles,team:{name:tm.name,count:tm.count,profile:profFull(tm.pf),ctx:(c.ctx||"").trim()},events:p.events,levers:p.levers,aleas:p.aleas})});
+        if(r.status===429||r.status===503||r.status===504) continue;
+        if(!r.ok) return;
+        const j=await r.json();
+        (j.events||[]).forEach(e=>{out.ev[e.i]={title:e.title,text:e.text,lens:e.lens};});
+        (j.levers||[]).forEach(l=>{out.lev[l.id]=l.desc;});
+        (j.aleas||[]).forEach(a=>{out.al[a.id]={title:a.title,text:a.text};});
+        return;
+      }catch(_){} finally{clearTimeout(to);}
+    }
+  }));
+  if(Object.keys(out.ev).length||Object.keys(out.lev).length) tm.perso=out;
+  if(Object.keys(out.al).length) tm.G.alp=out.al;
 }
 
-document.addEventListener("click",e=>{
+async function bilanTeam(tm,c,token){
+  const G=tm.G,v=verdict(G,null),ob=objectiveResult(G);
+  const strip=s=>String(s).replace(/<[^>]*>/g,"").replace(/&[a-z]+;/g," ");
+  const periods=G.hist.map(h=>({i:h.ev,tag:EVENTS[h.ev].tag,title:strip(eventTitle(h.ev,tm)),picks:h.picks.map(id=>({name:LEV[id].name,pts:h.alloc[id]})),dP:h.delta.P,dC:h.delta.C,dB:h.delta.B,alea:h.alea?h.alea.title:undefined}));
+  const body={game:GAME_KIND,kind:"bilan",session_id:S.sessionId,team:{name:tm.name,count:tm.count,profile:profFull(tm.pf),ctx:((c&&c.ctx)||"").trim()},periods,finale:{objectif:OBJECTIVES[tm.pf.obj].label,atteint:!!ob.ok,P:G.state.P,C:G.state.C,B:G.state.B,vtitle:strip(v.title),vtext:strip(v.text).replace(/Vous avez placé.*$/,"").trim()}};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  for(let attempt=0;attempt<4;attempt++){
+    if(attempt) await wait(attempt*6000);
+    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),75000);
+    try{
+      const r=await fetch("/api/personalize",{method:"POST",signal:ctl.signal,headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify(body)});
+      if(r.status===429||r.status===503||r.status===504) continue;
+      if(!r.ok) return;
+      const j=await r.json();
+      const per={};(j.periods||[]).forEach(p=>{per[p.i]=p.comment;});
+      if(Object.keys(per).length||j.verdict||j.questions) tm.bilan={per,verdict:j.verdict||null,qs:j.questions||null};
+      return;
+    }catch(_){} finally{clearTimeout(to);}
+  }
+}
+async function bilanAll(){
+  try{
+    const {data}=await sb.auth.getSession(); const token=data&&data.session?data.session.access_token:"";
+    if(!token||!S.sessionId) return;
+    await Promise.all(S.teams.map((tm,i)=>{if(tm.bilan||tm.bilanTried) return null;tm.bilanTried=true;return bilanTeam(tm,S.cfg[i]||{},token);}));
+  }catch(_){}
+}
+async function personalizeAll(){
+  S.persoNote="";
+  try{
+    const {data}=await sb.auth.getSession(); const token=data&&data.session?data.session.access_token:"";
+    if(!token) return;
+    S.phase="prep";S.prepDone=0;render();
+    await Promise.all(S.teams.map((tm,i)=>personalizeTeam(tm,S.cfg[i]||{},token).then(()=>{S.prepDone++;if(S.phase==="prep") render();})));
+    const miss=S.teams.filter(t=>!t.perso).length;
+    if(miss) S.persoNote="La personnalisation n’a pas pu être appliquée à "+(miss>1?miss+" équipes":"une équipe")+" : les textes standards sont utilisés.";
+  }catch(_){S.persoNote="La personnalisation est indisponible : les textes standards sont utilisés.";}
+  S.phase="brief";
+  await save();
+}
+
+document.addEventListener("click",async e=>{
   const t=e.target.closest("[data-act]");
   if(!t||t.tagName==="INPUT"||t.tagName==="SELECT"||t.tagName==="TEXTAREA") return;
   const a=t.dataset.act;
@@ -1200,8 +1384,16 @@ document.addEventListener("click",e=>{
     if(!S.teams.every(x=>allocSum(x.G.alloc)===3)) return;
     S.teams.forEach(x=>{step(x.G,x.G.alloc);x.G.alloc={};});
     S.phase="result";render();goTop();save();
+    if(CLOUD&&S.teams[0].G.period>=NP) S.bilanP=bilanAll();
   }else if(a==="next"){
-    S.phase=S.teams[0].G.period>=NP?"final":"play";render();goTop();save();
+    if(S.teams[0].G.period>=NP){
+      if(CLOUD&&S.teams.some(x=>!x.bilan&&!x.bilanTried||S.bilanP)){
+        S.prepKind="bilan";S.phase="prep";render();goTop();
+        try{await (S.bilanP||bilanAll());}catch(_){}
+        S.bilanP=null;S.prepKind="";
+      }
+      S.phase="final";render();goTop();save();
+    }else{S.phase="play";render();goTop();save();}
   }else if(a==="metric"){S.metric=t.dataset.k;keep(render);}
   else if(a==="print"){printNow();}
   else if(a==="again"){startGame();render();goTop();}
@@ -1241,6 +1433,7 @@ document.addEventListener("input",e=>{
   const t=e.target,act=t.dataset&&t.dataset.act;
   if(!act) return;
   if(act==="tname") S.cfg[+t.dataset.i].name=t.value;
+  else if(act==="tctx") S.cfg[+t.dataset.i].ctx=t.value.slice(0,600);
   else if(act==="gtitle") S.title=t.value;
   else if(act==="dq"){S.debrief.notes[t.dataset.k]=t.value;touch();}
   else if(act==="dsynth"){S.debrief.synth=t.value;touch();}
